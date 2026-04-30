@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>오늘의집 단독상품 매출 대시보드</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<style>
+  :root {
+    --bg: #f1f5f9;
+    --card: #ffffff;
+    --border: #e2e8f0;
+    --text-main: #1e293b;
+    --text-sub: #64748b;
+    --ep: #3b82f6;
+    --ep-light: #eff6ff;
+    --pb: #10b981;
+    --pb-light: #ecfdf5;
+    --total: #8b5cf6;
+    --total-light: #f5f3ff;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+    --shadow-md: 0 4px 6px rgba(0,0,0,.07), 0 2px 4px rgba(0,0,0,.06);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif; background: var(--bg); color: var(--text-main); font-size: 14px; }
+
+  /* ── 헤더 ── */
+  .header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #fff; padding: 28px 40px; }
+  .header h1 { font-size: 22px; font-weight: 700; letter-spacing: -.3px; }
+  .header p  { color: #94a3b8; font-size: 13px; margin-top: 4px; }
+  .header-meta { display: flex; gap: 20px; margin-top: 14px; }
+  .badge { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.15); border-radius: 20px; padding: 4px 12px; font-size: 12px; color: #cbd5e1; }
+
+  /* ── 레이아웃 ── */
+  .content { padding: 28px 40px; max-width: 1400px; margin: 0 auto; }
+  .section { margin-bottom: 36px; }
+  .section-title { font-size: 16px; font-weight: 700; color: var(--text-main); margin-bottom: 16px; padding-left: 10px; border-left: 4px solid var(--ep); display: flex; align-items: center; gap: 8px; }
+  .section-title.pb { border-left-color: var(--pb); }
+  .section-title.mixed { border-left-color: var(--total); }
+
+  /* ── KPI 카드 ── */
+  .kpi-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-bottom: 36px; }
+  .kpi-card { background: var(--card); border-radius: 12px; padding: 18px 20px; box-shadow: var(--shadow); border-top: 3px solid transparent; }
+  .kpi-card.total { border-top-color: var(--total); }
+  .kpi-card.ep    { border-top-color: var(--ep); }
+  .kpi-card.pb    { border-top-color: var(--pb); }
+  .kpi-card.mix   { border-top-color: var(--warn); }
+  .kpi-label { font-size: 12px; color: var(--text-sub); margin-bottom: 6px; }
+  .kpi-value { font-size: 24px; font-weight: 700; }
+  .kpi-value.total { color: var(--total); }
+  .kpi-value.ep    { color: var(--ep); }
+  .kpi-value.pb    { color: var(--pb); }
+  .kpi-value.mix   { color: var(--warn); }
+  .kpi-sub { font-size: 12px; color: var(--text-sub); margin-top: 4px; }
+
+  /* ── 차트 카드 ── */
+  .chart-card { background: var(--card); border-radius: 12px; padding: 24px; box-shadow: var(--shadow); }
+  .chart-title { font-size: 14px; font-weight: 700; color: var(--text-main); margin-bottom: 18px; }
+  .chart-title span { font-size: 12px; font-weight: 400; color: var(--text-sub); margin-left: 6px; }
+  .chart-wrap { position: relative; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .col-span-2 { grid-column: span 2; }
+
+  /* ── 카테고리 테이블 ── */
+  .cat-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 4px; }
+  .cat-table th { background: #f8fafc; padding: 8px 12px; text-align: left; font-weight: 600; color: var(--text-sub); font-size: 12px; border-bottom: 1px solid var(--border); }
+  .cat-table td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; }
+  .cat-table tr:last-child td { border-bottom: none; font-weight: 700; background: #f8fafc; }
+  .bar-cell { display: flex; align-items: center; gap: 8px; }
+  .bar-bg { flex: 1; background: #f1f5f9; border-radius: 4px; height: 8px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; }
+
+  /* ── 전략 섹션 ── */
+  .strategy-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .strategy-card { background: var(--card); border-radius: 12px; padding: 20px; box-shadow: var(--shadow); }
+  .strategy-card .s-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .s-badge { padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+  .s-badge.urgent   { background: #fee2e2; color: #dc2626; }
+  .s-badge.short    { background: #fef3c7; color: #d97706; }
+  .s-badge.ongoing  { background: #d1fae5; color: #059669; }
+  .strategy-card h3 { font-size: 14px; font-weight: 700; }
+  .strategy-card p  { font-size: 13px; color: var(--text-sub); line-height: 1.7; margin-top: 6px; }
+  .strategy-card .s-effect { margin-top: 12px; background: #f8fafc; border-radius: 8px; padding: 10px 12px; font-size: 13px; }
+  .s-effect strong { color: var(--pb); }
+
+  /* ── 시뮬레이션 테이블 ── */
+  .sim-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .sim-table th { background: #1e293b; color: #fff; padding: 10px 14px; text-align: left; font-weight: 600; font-size: 12px; }
+  .sim-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  .sim-table tr:last-child td { font-weight: 700; background: #f0fdf4; color: #059669; }
+  .sim-table .arrow { color: var(--pb); font-weight: 700; }
+
+  /* ── 인사이트 박스 ── */
+  .insight-box { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px; }
+  .insight-item { background: #f8fafc; border-radius: 8px; padding: 12px 14px; border-left: 3px solid var(--border); }
+  .insight-item.ep { border-left-color: var(--ep); }
+  .insight-item.pb { border-left-color: var(--pb); }
+  .insight-item.warn { border-left-color: var(--warn); }
+  .insight-item .i-label { font-size: 11px; color: var(--text-sub); margin-bottom: 4px; }
+  .insight-item .i-value { font-size: 13px; font-weight: 600; }
+
+  /* ── 탭 ── */
+  .tab-group { display: flex; gap: 6px; margin-bottom: 16px; }
+  .tab-btn { padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border); background: #fff; color: var(--text-sub); font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s; }
+  .tab-btn.active { background: var(--ep); color: #fff; border-color: var(--ep); }
+  .tab-btn.pb-tab.active { background: var(--pb); border-color: var(--pb); }
+
+  @media (max-width: 1024px) {
+    .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+    .grid-2, .grid-3, .strategy-grid { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>오늘의집 단독상품 매출 대시보드</h1>
+  <p>EP · PB 단독상품 매출 현황 및 카테고리 분석</p>
+  <div class="header-meta">
+    <span class="badge">📅 분석기간: 2025년 1월 ~ 2026년 3월</span>
+    <span class="badge">📂 매출기준_단독상품</span>
+    <span class="badge">🕐 기준일: 2026-04-23</span>
+  </div>
+</div>
+
+<div class="content">
+
+  <!-- ── KPI ── -->
+  <div class="kpi-grid">
+    <div class="kpi-card total">
+      <div class="kpi-label">오늘의집 전체 매출 합계</div>
+      <div class="kpi-value total">199.1억</div>
+      <div class="kpi-sub">월평균 13.3억</div>
+    </div>
+    <div class="kpi-card ep">
+      <div class="kpi-label">EP 단독 매출 합계</div>
+      <div class="kpi-value ep">31.9억</div>
+      <div class="kpi-sub">전체 대비 16.1%</div>
+    </div>
+    <div class="kpi-card pb">
+      <div class="kpi-label">PB 단독 매출 합계</div>
+      <div class="kpi-value pb">43.5억</div>
+      <div class="kpi-sub">전체 대비 21.9%</div>
+    </div>
+    <div class="kpi-card mix">
+      <div class="kpi-label">EP+PB 단독 합산</div>
+      <div class="kpi-value mix">75.4억</div>
+      <div class="kpi-sub">전체 대비 평균 38.0%</div>
+    </div>
+    <div class="kpi-card ep">
+      <div class="kpi-label">EP 현재 운영 상품수</div>
+      <div class="kpi-value ep">32개</div>
+      <div class="kpi-sub">상품당 월평균 689만원</div>
+    </div>
+    <div class="kpi-card pb">
+      <div class="kpi-label">PB 현재 운영 상품수</div>
+      <div class="kpi-value pb">161개</div>
+      <div class="kpi-sub">상품당 월평균 220만원</div>
+    </div>
+  </div>
+
+  <!-- ── 섹션1: 월별 전체 매출 현황 ── -->
+  <div class="section">
+    <div class="section-title mixed">월별 매출 현황 &amp; 단독상품 비중</div>
+    <div class="grid-2">
+      <div class="chart-card">
+        <div class="chart-title">월별 매출 구성 <span>(전체 / EP단독 / PB단독, 억원)</span></div>
+        <div class="chart-wrap" style="height:260px">
+          <canvas id="chartMonthly"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">단독상품 매출 비중 추이 <span>(%)</span></div>
+        <div class="chart-wrap" style="height:260px">
+          <canvas id="chartPct"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="insight-box" style="margin-top:14px">
+      <div class="insight-item ep">
+        <div class="i-label">EP 단독 비중 범위</div>
+        <div class="i-value">11.6% ~ 20.8% (월별)</div>
+      </div>
+      <div class="insight-item pb">
+        <div class="i-label">PB 단독 비중 범위</div>
+        <div class="i-value">15.4% ~ 28.0% (월별)</div>
+      </div>
+      <div class="insight-item warn">
+        <div class="i-label">EP+PB 합산 최고 비중</div>
+        <div class="i-value">2025년 11월 48.7%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 섹션1-B: EP+PB 합산 운영 현황 ── -->
+  <div class="section">
+    <div class="section-title mixed">EP+PB 단독상품 합산 월별 운영 현황</div>
+    <div class="grid-2">
+      <div class="chart-card">
+        <div class="chart-title">월별 총 운영 단독상품수 <span>(EP + PB 합산, 개)</span></div>
+        <div class="chart-wrap" style="height:260px">
+          <canvas id="chartCombinedCnt"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">단독상품당 월매출 <span>(EP+PB 합산 기준, 만원)</span></div>
+        <div class="chart-wrap" style="height:260px">
+          <canvas id="chartCombinedPer"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="insight-box" style="margin-top:14px">
+      <div class="insight-item warn">
+        <div class="i-label">운영 상품수 최다</div>
+        <div class="i-value">2025년 2월 181개 (EP 41 + PB 140)</div>
+      </div>
+      <div class="insight-item warn">
+        <div class="i-label">운영 상품수 최소</div>
+        <div class="i-value">2025년 10월 125개 (EP 35 + PB 90)</div>
+      </div>
+      <div class="insight-item ep">
+        <div class="i-label">상품당 매출 최고</div>
+        <div class="i-value">2025년 12월 412만원 / 126개</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 섹션2: 월별 운영 현황 ── -->
+  <div class="section">
+    <div class="section-title pb">PB 단독상품 월별 운영 현황</div>
+    <div class="grid-2">
+      <div class="chart-card">
+        <div class="chart-title">PB 단독 운영 상품수 <span>(개)</span></div>
+        <div class="chart-wrap" style="height:220px">
+          <canvas id="chartPbCnt"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">PB 단독 상품당 월매출 <span>(만원)</span></div>
+        <div class="chart-wrap" style="height:220px">
+          <canvas id="chartPbPer"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">EP 단독상품 월별 운영 현황</div>
+    <div class="grid-2">
+      <div class="chart-card">
+        <div class="chart-title">EP 단독 운영 상품수 <span>(개)</span></div>
+        <div class="chart-wrap" style="height:220px">
+          <canvas id="chartEpCnt"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">EP 단독 상품당 월매출 <span>(만원)</span></div>
+        <div class="chart-wrap" style="height:220px">
+          <canvas id="chartEpPer"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 섹션3: 카테고리 구성비 ── -->
+  <div class="section">
+    <div class="section-title mixed">카테고리별 매출 구성비</div>
+    <div class="grid-2">
+
+      <!-- EP 카테고리 -->
+      <div class="chart-card">
+        <div class="chart-title">EP 단독 카테고리 구성비 <span>전체 31.9억</span></div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; align-items:center">
+          <div style="height:220px; position:relative">
+            <canvas id="chartEpCat"></canvas>
+          </div>
+          <div>
+            <table class="cat-table">
+              <thead><tr><th>카테고리</th><th>매출</th><th>비중</th></tr></thead>
+              <tbody id="epCatTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- PB 카테고리 -->
+      <div class="chart-card">
+        <div class="chart-title">PB 단독 카테고리 구성비 <span>전체 43.5억</span></div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; align-items:center">
+          <div style="height:220px; position:relative">
+            <canvas id="chartPbCat"></canvas>
+          </div>
+          <div>
+            <table class="cat-table">
+              <thead><tr><th>카테고리</th><th>매출</th><th>비중</th></tr></thead>
+              <tbody id="pbCatTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 섹션4: PB 카테고리별 추이 ── -->
+  <div class="section">
+    <div class="section-title pb">PB 단독 카테고리별 월별 추이</div>
+    <div class="grid-2">
+      <div class="chart-card">
+        <div class="chart-title">카테고리별 월별 매출 <span>(억원)</span></div>
+        <div class="chart-wrap" style="height:260px">
+          <canvas id="chartPbCatLine"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">카테고리별 상품당 월매출 <span>(만원)</span></div>
+        <div class="chart-wrap" style="height:260px">
+          <canvas id="chartPbCatPer"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="insight-box" style="margin-top:14px">
+      <div class="insight-item pb">
+        <div class="i-label">수납 — 최다 상품 운영</div>
+        <div class="i-value">83개 운영 중 / 최근 상품당↓190만원</div>
+      </div>
+      <div class="insight-item pb">
+        <div class="i-label">식탁 — 2025년 10월 12개 해제</div>
+        <div class="i-value">현재 2개 / 상품당↑461만원</div>
+      </div>
+      <div class="insight-item warn">
+        <div class="i-label">서재방 — 전량 해제</div>
+        <div class="i-value">50개 전량 해제 (2025년 10월)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 섹션5: PB 카테고리 현황 테이블 ── -->
+  <div class="section">
+    <div class="section-title pb">PB 단독 카테고리별 상품 운영 현황</div>
+    <div class="chart-card">
+      <table class="cat-table" style="font-size:13px">
+        <thead>
+          <tr>
+            <th>카테고리</th>
+            <th style="text-align:right">총 상품수</th>
+            <th style="text-align:right">현재 운영</th>
+            <th style="text-align:right">해제</th>
+            <th style="text-align:right">25H2 신규</th>
+            <th style="text-align:right">26년 신규</th>
+            <th style="text-align:right">누적 매출(억)</th>
+            <th>비중</th>
+            <th>평가</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>수납</strong></td>
+            <td style="text-align:right">84</td><td style="text-align:right">83</td><td style="text-align:right">1</td>
+            <td style="text-align:right">12</td><td style="text-align:right">9</td>
+            <td style="text-align:right">15.42</td>
+            <td>
+              <div class="bar-cell"><div class="bar-bg"><div class="bar-fill" style="width:100%;background:#10b981"></div></div><span>34.4%</span></div>
+            </td>
+            <td><span style="color:#d97706;font-weight:600">⚠ 상품수 과다 → 효율 희석</span></td>
+          </tr>
+          <tr>
+            <td><strong>거실</strong></td>
+            <td style="text-align:right">49</td><td style="text-align:right">46</td><td style="text-align:right">3</td>
+            <td style="text-align:right">29</td><td style="text-align:right">27</td>
+            <td style="text-align:right">13.56</td>
+            <td>
+              <div class="bar-cell"><div class="bar-bg"><div class="bar-fill" style="width:89%;background:#3b82f6"></div></div><span>30.8%</span></div>
+            </td>
+            <td><span style="color:#059669;font-weight:600">✅ 신규 활발 확대 중</span></td>
+          </tr>
+          <tr>
+            <td><strong>침실</strong></td>
+            <td style="text-align:right">25</td><td style="text-align:right">25</td><td style="text-align:right">0</td>
+            <td style="text-align:right">11</td><td style="text-align:right">6</td>
+            <td style="text-align:right">6.60</td>
+            <td>
+              <div class="bar-cell"><div class="bar-bg"><div class="bar-fill" style="width:44%;background:#8b5cf6"></div></div><span>15.0%</span></div>
+            </td>
+            <td><span style="color:#059669;font-weight:600">✅ 해제 0건, 안정적 운영</span></td>
+          </tr>
+          <tr>
+            <td><strong>식탁</strong></td>
+            <td style="text-align:right">14</td><td style="text-align:right">2</td><td style="text-align:right">12</td>
+            <td style="text-align:right">1</td><td style="text-align:right">1</td>
+            <td style="text-align:right">6.12</td>
+            <td>
+              <div class="bar-cell"><div class="bar-bg"><div class="bar-fill" style="width:40%;background:#f59e0b"></div></div><span>13.9%</span></div>
+            </td>
+            <td><span style="color:#dc2626;font-weight:600">🔴 미나 시리즈 전량 해제 → 재활성화 필요</span></td>
+          </tr>
+          <tr>
+            <td><strong>서재방</strong></td>
+            <td style="text-align:right">50</td><td style="text-align:right">0</td><td style="text-align:right">50</td>
+            <td style="text-align:right">0</td><td style="text-align:right">0</td>
+            <td style="text-align:right">2.13</td>
+            <td>
+              <div class="bar-cell"><div class="bar-bg"><div class="bar-fill" style="width:10%;background:#94a3b8"></div></div><span>3.0%</span></div>
+            </td>
+            <td><span style="color:#dc2626;font-weight:600">🔴 전량 해제 → 선별 재전환 검토</span></td>
+          </tr>
+          <tr>
+            <td><strong>키즈</strong></td>
+            <td style="text-align:right">3</td><td style="text-align:right">2</td><td style="text-align:right">1</td>
+            <td style="text-align:right">2</td><td style="text-align:right">0</td>
+            <td style="text-align:right">1.12</td>
+            <td>
+              <div class="bar-cell"><div class="bar-bg"><div class="bar-fill" style="width:7%;background:#ec4899"></div></div><span>2.6%</span></div>
+            </td>
+            <td><span style="color:#7c3aed;font-weight:600">⭐ 소규모 고효율 → 집중 육성 필요</span></td>
+          </tr>
+          <tr>
+            <td><strong>합계</strong></td>
+            <td style="text-align:right">225</td><td style="text-align:right">158</td><td style="text-align:right">67</td>
+            <td style="text-align:right">55</td><td style="text-align:right">43</td>
+            <td style="text-align:right">44.95</td>
+            <td></td><td></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── 섹션6: 운영 전략 ── -->
+  <div class="section">
+    <div class="section-title mixed">PB 단독상품 확대 운영전략</div>
+    <div class="strategy-grid">
+
+      <div class="strategy-card">
+        <div class="s-header">
+          <span class="s-badge urgent">즉시 실행 (1~3개월)</span>
+        </div>
+        <h3>🍽 식탁 카테고리 재활성화</h3>
+        <p>미나 라운드 의자(해제 전 <strong>2,606만원/월</strong>), 미나 원형 4인 식탁(<strong>791만원/월</strong>) 등 상위 상품 재단독 전환. 현재 2개 상품도 400~460만원/월 유지 중.</p>
+        <div class="s-effect">목표: 3~5개 재전환 → <strong>월 +0.15~0.25억</strong></div>
+      </div>
+
+      <div class="strategy-card">
+        <div class="s-header">
+          <span class="s-badge urgent">즉시 실행 (1~3개월)</span>
+        </div>
+        <h3>👶 키즈 카테고리 집중 육성</h3>
+        <p>현재 단 2개 운영이나 상품당 월매출 <strong>245~576만원</strong>으로 전 카테고리 최고 효율 구간. 안전인증 요건으로 단독 계약 차별화 명확.</p>
+        <div class="s-effect">목표: 2개 → 7~10개 → <strong>월 +0.15~0.20억</strong></div>
+      </div>
+
+      <div class="strategy-card">
+        <div class="s-header">
+          <span class="s-badge short">단기 실행 (3~6개월)</span>
+        </div>
+        <h3>🛋 거실 PB 단독 지속 확대</h3>
+        <p>2026년 27개 신규 전환으로 이미 활발. 상품당 240~269만원/월 안정적. <strong>EP 단독 소파류와 중복 없는</strong> TV장·선반·보조가구 중심 확대.</p>
+        <div class="s-effect">목표: 46개 → 55~60개 → <strong>월 +0.20~0.30억</strong></div>
+      </div>
+
+      <div class="strategy-card">
+        <div class="s-header">
+          <span class="s-badge short">단기 실행 (3~6개월)</span>
+        </div>
+        <h3>🍳 PB 주방 카테고리 신규 진출</h3>
+        <p>PB 단독에 주방이 없으나 EP 주방 단독이 월평균 <strong>0.19억(9% 비중)</strong>으로 수요 검증. 주방 수납·가전장 등 5~8개 시범 운영.</p>
+        <div class="s-effect">목표: 신규 카테고리 개척 → <strong>월 +0.05~0.10억</strong></div>
+      </div>
+
+      <div class="strategy-card">
+        <div class="s-header">
+          <span class="s-badge short">단기 실행 (3~6개월)</span>
+        </div>
+        <h3>📚 서재방 선별 재전환</h3>
+        <p>50개 전량 해제. 플롯 수납책장(<strong>379만원/월</strong>), 플롯 서랍책장(167만원/월), 샘와이드 책장(141만원/월) 상위 3~5개 선별 재전환 검토.</p>
+        <div class="s-effect">조건: 단독 계약 비용 대비 ROI 검토 후 결정</div>
+      </div>
+
+      <div class="strategy-card">
+        <div class="s-header">
+          <span class="s-badge ongoing">지속 관리</span>
+        </div>
+        <h3>📦 수납 상품 효율 관리</h3>
+        <p>83개 운영으로 최다이나 상품당 월매출 <strong>190만원(3월)으로 최저치</strong>. 3개월 연속 50만원 미만 상품 선별 정리 → 70개 수준 유지, 품질 강화.</p>
+        <div class="s-effect">목표: 상품당 월매출 <strong>250만원 이상</strong> 회복</div>
+      </div>
+    </div>
+
+    <!-- 매출 시뮬레이션 -->
+    <div class="chart-card" style="margin-top:18px">
+      <div class="chart-title">📈 PB 단독상품 매출 성장 시뮬레이션 <span>(2026년 3월 기준)</span></div>
+      <table class="sim-table">
+        <thead>
+          <tr><th>단계</th><th>실행 내용</th><th>월 증가분</th><th>누적 월매출</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>현재</td><td>2026년 3월 기준</td><td>-</td><td>2.49억</td></tr>
+          <tr><td><span class="s-badge urgent" style="font-size:11px">즉시</span> 식탁 재활성화</td><td>미나 시리즈 3~5개 재단독 전환</td><td class="arrow">+0.20억</td><td>2.69억</td></tr>
+          <tr><td><span class="s-badge urgent" style="font-size:11px">즉시</span> 키즈 확대</td><td>키즈 침대·책상 5~8개 신규 단독</td><td class="arrow">+0.15억</td><td>2.84억</td></tr>
+          <tr><td><span class="s-badge short" style="font-size:11px">단기</span> 거실 확대</td><td>EP 비중복 TV장·선반 10~15개 추가</td><td class="arrow">+0.25억</td><td>3.09억</td></tr>
+          <tr><td><span class="s-badge short" style="font-size:11px">단기</span> 주방 신규</td><td>PB 주방 5~8개 시범 운영</td><td class="arrow">+0.08억</td><td>3.17억</td></tr>
+          <tr><td><span class="s-badge ongoing" style="font-size:11px">유지</span> 수납 효율화</td><td>하위 상품 정리 + 품질 강화</td><td class="arrow">+0.05억</td><td><strong>3.22억 (+29%)</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── 섹션7: 거실 카테고리 성장 전략 ── -->
+  <div class="section">
+    <div class="section-title mixed">거실 카테고리 성장을 위한 단독 전환 후보 상품군</div>
+
+    <!-- 현황 KPI -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px">
+      <div class="kpi-card ep">
+        <div class="kpi-label">EP 단독 거실 매출</div>
+        <div class="kpi-value ep">28.3억</div>
+        <div class="kpi-sub">비단독 거실 6.1억 (72개 상품)</div>
+      </div>
+      <div class="kpi-card pb">
+        <div class="kpi-label">PB 단독 거실 매출</div>
+        <div class="kpi-value pb">13.6억</div>
+        <div class="kpi-sub">비단독 거실 13.0억 (169개 상품)</div>
+      </div>
+      <div class="kpi-card mix">
+        <div class="kpi-label">EP 최우선 전환 상품군</div>
+        <div class="kpi-value mix" style="font-size:16px">리클라이너·스윙</div>
+        <div class="kpi-sub">비단독 매출 4.1억, 월 기대 +0.35억</div>
+      </div>
+      <div class="kpi-card mix">
+        <div class="kpi-label">PB 최우선 전환 상품군</div>
+        <div class="kpi-value mix" style="font-size:16px">거실장·테이블</div>
+        <div class="kpi-sub">공백 품목, 비단독 매출 3.9억</div>
+      </div>
+    </div>
+
+    <!-- EP / PB 비단독 상품군 차트 -->
+    <div class="grid-2" style="margin-bottom:18px">
+      <div class="chart-card">
+        <div class="chart-title">EP 비단독 거실 상품군별 매출 <span>총 6.1억 / 72개 상품</span></div>
+        <div class="chart-wrap" style="height:280px"><canvas id="chartEpNonLiving"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">PB 비단독 거실 상품군별 매출 <span>총 13.0억 / 169개 상품</span></div>
+        <div class="chart-wrap" style="height:280px"><canvas id="chartPbNonLiving"></canvas></div>
+      </div>
+    </div>
+
+    <!-- EP / PB 상위 상품 테이블 -->
+    <div class="grid-2" style="margin-bottom:18px">
+      <div class="chart-card">
+        <div class="chart-title">EP 비단독 거실 상위 상품 <span>(단독 전환 후보)</span></div>
+        <table class="cat-table" style="font-size:12px">
+          <thead><tr><th>상품명</th><th style="text-align:right">누적매출</th><th style="text-align:right">월평균</th><th>상품군</th></tr></thead>
+          <tbody id="epNonLivingTable"></tbody>
+        </table>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">PB 비단독 거실 상위 상품 <span>(단독 전환 후보)</span></div>
+        <table class="cat-table" style="font-size:12px">
+          <thead><tr><th>상품명</th><th style="text-align:right">누적매출</th><th style="text-align:right">월평균</th><th>상품군</th></tr></thead>
+          <tbody id="pbNonLivingTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 전환 우선순위 로드맵 -->
+    <div class="chart-card">
+      <div class="chart-title">🗺 거실 단독 전환 우선순위 로드맵</div>
+      <table class="sim-table">
+        <thead>
+          <tr><th>우선순위</th><th>채널</th><th>상품군</th><th style="text-align:right">추천 전환수</th><th>핵심 근거</th><th style="text-align:right">월매출 기대증가</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="s-badge urgent">즉시</span></td>
+            <td><span style="color:#3b82f6;font-weight:700">EP</span></td>
+            <td>리클라이너 소파</td>
+            <td style="text-align:right">3~4개</td>
+            <td>EP 단독 공백 품목 / 보니애 보이저 846만원·씨엘로 씨네드 458만원 기존 단독 평균 초과</td>
+            <td style="text-align:right;color:#059669;font-weight:700">+0.15~0.20억</td>
+          </tr>
+          <tr>
+            <td><span class="s-badge urgent">즉시</span></td>
+            <td><span style="color:#3b82f6;font-weight:700">EP</span></td>
+            <td>스윙 소파</td>
+            <td style="text-align:right">2~3개</td>
+            <td>EP 단독 공백 품목 / 눕 타이보텍스 773만원, 기존 패브릭 소파 단독 수준</td>
+            <td style="text-align:right;color:#059669;font-weight:700">+0.10~0.15억</td>
+          </tr>
+          <tr>
+            <td><span class="s-badge urgent">즉시</span></td>
+            <td><span style="color:#10b981;font-weight:700">PB</span></td>
+            <td>거실장 / TV장</td>
+            <td style="text-align:right">5~7개</td>
+            <td>EP·PB 단독 모두 공백 / 클린트2 거실장 473만원 / 소파 세트 수요 연계 기대</td>
+            <td style="text-align:right;color:#059669;font-weight:700">+0.20~0.30억</td>
+          </tr>
+          <tr>
+            <td><span class="s-badge short">단기</span></td>
+            <td><span style="color:#10b981;font-weight:700">PB</span></td>
+            <td>소파 / 거실 테이블</td>
+            <td style="text-align:right">5~8개</td>
+            <td>EP·PB 단독 모두 공백 / 클린트 리프트업 353만원 / 소파 단독상품 코디 연계 매출</td>
+            <td style="text-align:right;color:#059669;font-weight:700">+0.10~0.15억</td>
+          </tr>
+          <tr>
+            <td><span class="s-badge short">단기</span></td>
+            <td><span style="color:#10b981;font-weight:700">PB</span></td>
+            <td>리클라이너 소파 (MVME)</td>
+            <td style="text-align:right">5개 선별</td>
+            <td>비단독 4.28억 최대 규모 / MVME 프라임 노블 522~565만원 / EP 단독과 미중복</td>
+            <td style="text-align:right;color:#059669;font-weight:700">+0.20~0.25억</td>
+          </tr>
+          <tr>
+            <td><span class="s-badge short">단기</span></td>
+            <td><span style="color:#10b981;font-weight:700">PB</span></td>
+            <td>가죽 소파</td>
+            <td style="text-align:right">4~5개 선별</td>
+            <td>엠마 컴포트 363만원·하이 아르떼 362만원 / 고가 소파 단독화로 객단가 향상</td>
+            <td style="text-align:right;color:#059669;font-weight:700">+0.10~0.15억</td>
+          </tr>
+          <tr style="background:#f0fdf4">
+            <td colspan="3"><strong>합계 (20~27개 전환)</strong></td>
+            <td style="text-align:right"><strong>20~27개</strong></td>
+            <td><strong>거실 단독 월매출 현재 대비 약 +50~70% 성장 기대</strong></td>
+            <td style="text-align:right;color:#059669;font-weight:700">+0.85~1.20억/월</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── 섹션8: 패브릭 소파 ── -->
+
+  <div class="section">
+    <div class="section-title mixed">패브릭 소파 단독상품 월별 운영 현황</div>
+
+    <!-- KPI -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px">
+      <div class="kpi-card ep">
+        <div class="kpi-label">EP 패브릭 소파 누적매출</div>
+        <div class="kpi-value ep">27.1억</div>
+        <div class="kpi-sub">EP 단독 전체의 <strong>84.9%</strong></div>
+      </div>
+      <div class="kpi-card pb">
+        <div class="kpi-label">PB 패브릭 소파 누적매출</div>
+        <div class="kpi-value pb">5.5억</div>
+        <div class="kpi-sub">PB 단독 전체의 <strong>12.7%</strong></div>
+      </div>
+      <div class="kpi-card ep">
+        <div class="kpi-label">EP 월평균 상품수</div>
+        <div class="kpi-value ep" style="font-size:20px">13개</div>
+        <div class="kpi-sub">월평균 매출 1.81억</div>
+      </div>
+      <div class="kpi-card pb">
+        <div class="kpi-label">PB 월평균 상품수</div>
+        <div class="kpi-value pb" style="font-size:20px">16개</div>
+        <div class="kpi-sub">월평균 매출 0.37억</div>
+      </div>
+    </div>
+
+    <!-- 차트 2개 -->
+    <div class="grid-2" style="margin-bottom:18px">
+      <div class="chart-card">
+        <div class="chart-title">월별 운영 상품수 <span>(EP vs PB, 개)</span></div>
+        <div class="chart-wrap" style="height:250px">
+          <canvas id="chartFabricCnt"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">월별 매출 <span>(EP vs PB, 억원)</span></div>
+        <div class="chart-wrap" style="height:250px">
+          <canvas id="chartFabricSales"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- 상품별 누적매출 테이블 -->
+    <div class="grid-2">
+      <div class="chart-card">
+        <div class="chart-title">EP 패브릭 소파 상품별 누적매출</div>
+        <table class="cat-table" style="font-size:12px">
+          <thead><tr><th>상품명</th><th style="text-align:right">누적매출</th><th>비중</th></tr></thead>
+          <tbody id="epFabricTable"></tbody>
+        </table>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">PB 패브릭 소파 상품별 누적매출</div>
+        <table class="cat-table" style="font-size:12px">
+          <thead><tr><th>상품명</th><th style="text-align:right">누적매출</th><th>비중</th></tr></thead>
+          <tbody id="pbFabricTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /content -->
+
+<script>
+Chart.register(ChartDataLabels);
+
+const D = {
+  labels: ["2025년 1월","2025년 2월","2025년 3월","2025년 4월","2025년 5월","2025년 6월","2025년 7월","2025년 8월","2025년 9월","2025년 10월","2025년 11월","2025년 12월","2026년 1월","2026년 2월","2026년 3월"],
+  total:       [13.1,13.3,16.6,13.5,12.5,11.6,12.4,12.6,13.2,11.8,12,16.7,15.1,10.6,14.1],
+  ep_exclusive:[2.25,2.66,2.37,1.92,1.91,1.73,1.44,1.86,2.29,2.45,1.94,2.62,2.28,1.98,2.21],
+  pb_exclusive:[2.27,2.79,2.68,3.21,3.42,3.24,3.03,3.49,2.21,2.19,3.02,2.57,2.86,2.69,2.49],
+  ep_pct:      [17.2,20.0,14.3,14.2,15.3,14.9,11.6,14.8,17.3,20.8,16.2,15.7,15.1,18.7,15.6],
+  pb_pct:      [17.4,21.0,16.1,23.8,27.4,28.0,24.4,27.7,16.7,18.6,25.2,15.4,18.9,25.4,17.7],
+  ep_prod_cnt: [38,41,39,45,33,36,35,37,35,35,38,37,37,35,32],
+  ep_per_prod: [592,650,607,426,580,480,411,503,654,701,510,707,616,567,689],
+  pb_prod_cnt: [112,140,118,128,129,120,129,134,127,90,105,89,109,112,113],
+  pb_per_prod: [203,200,227,251,265,270,235,260,174,244,288,289,262,240,220],
+  combined_prod_cnt: [150,181,157,173,162,156,164,171,162,125,143,126,146,147,145],
+  combined_per_prod: [301,301,322,297,329,319,273,313,278,371,347,412,352,318,324],
+  ep_cat:      { labels:["거실","주방","수납","침실"], sales:[28.28,2.86,0.60,0.17], pct:[88.6,9.0,1.9,0.5] },
+  pb_cat:      { labels:["수납","거실","침실","식탁","서재방","키즈"], sales:[15.11,13.56,6.60,6.12,1.31,1.12], pct:[34.4,30.8,15.0,13.9,3.0,2.6] },
+  pb_cat_mon:  {
+    수납:[0.465,0.561,0.591,0.845,0.869,0.828,0.891,0.915,0.672,1.026,1.523,1.322,1.365,1.279,1.102],
+    거실:[0.542,0.967,0.995,1.184,1.243,1.065,0.928,1.197,0.731,0.647,0.781,0.642,0.752,0.676,0.754],
+    침실:[0.352,0.396,0.294,0.244,0.322,0.351,0.431,0.488,0.298,0.463,0.546,0.415,0.569,0.602,0.479],
+    식탁:[0.812,0.650,0.679,0.612,0.630,0.723,0.558,0.652,0.301,0.044,0.035,0.114,0.087,0.083,0.092],
+    서재방:[0.088,0.120,0.080,0.205,0.174,0.153,0.162,0.162,0.163,0,0,0,0,0,0],
+    키즈:[0.014,0.100,0.041,0.100,0.159,0.112,0.044,0.060,0.031,0,0.115,0.066,0.086,0.049,0.061]
+  },
+  pb_cat_per: {
+    수납:[113,114,128,188,185,202,186,208,153,257,299,357,258,224,190],
+    거실:[246,261,332,395,414,344,332,363,236,240,289,229,251,242,269],
+    침실:[160,198,210,153,179,219,205,233,165,221,237,208,258,262,208],
+    식탁:[677,541,565,557,573,556,465,543,274,219,173,569,437,415,461],
+    서재방:[63,57,53,82,79,85,85,71,74,0,0,0,0,0,0],
+    키즈:[144,1005,412,1000,1588,1116,438,603,312,0,576,329,431,245,305]
+  }
+};
+
+const shortLabels = D.labels.map(l => l.replace('년 ','년\n').replace('2025년','25').replace('2026년','26'));
+const EP_COLOR  = '#3b82f6';
+const PB_COLOR  = '#10b981';
+const TOT_COLOR = '#8b5cf6';
+const EP_ALPHA  = 'rgba(59,130,246,0.18)';
+const PB_ALPHA  = 'rgba(16,185,129,0.18)';
+
+const baseOpts = (title) => ({
+  responsive: true, maintainAspectRatio: false,
+  plugins: { legend: { position:'top', labels:{ font:{size:12}, boxWidth:12, padding:10 } }, tooltip:{}, datalabels:{display:false} },
+  scales: {
+    x: { ticks:{ font:{size:11}, maxRotation:45 }, grid:{ display:false } },
+    y: { ticks:{ font:{size:11} }, grid:{ color:'#f1f5f9' } }
+  }
+});
+
+// 1. 월별 매출 구성 (누적 막대)
+new Chart(document.getElementById('chartMonthly'), {
+  type: 'bar',
+  data: {
+    labels: shortLabels,
+    datasets: [
+      { label:'전체 매출', data: D.total, backgroundColor:'rgba(139,92,246,0.15)', borderColor: TOT_COLOR, borderWidth:2, type:'line', yAxisID:'y', tension:0.3, pointRadius:3 },
+      { label:'EP 단독',   data: D.ep_exclusive, backgroundColor: 'rgba(59,130,246,0.75)', borderRadius:0, yAxisID:'y', stack:'s' },
+      { label:'PB 단독',   data: D.pb_exclusive, backgroundColor: 'rgba(16,185,129,0.75)', borderRadius:4,  yAxisID:'y', stack:'s' }
+    ]
+  },
+  options: { ...baseOpts(), scales: {
+    x: { ticks:{font:{size:11}, maxRotation:45}, grid:{display:false}, stacked:true },
+    y: { ticks:{font:{size:11}}, grid:{color:'#f1f5f9'}, stacked:true, max:23, title:{display:true,text:'억원',font:{size:11}} }
+  }, plugins: {
+    legend: { position:'top', labels:{ font:{size:12}, boxWidth:12, padding:10 } },
+    datalabels: {
+      display: ctx => ctx.datasetIndex === 1 || ctx.datasetIndex === 2,
+      anchor: 'center', align: 'center',
+      font: { size:9, weight:'600' },
+      color: '#fff',
+      formatter: v => v.toFixed(1)
+    }
+  }}
+});
+
+// 2. 단독 비중 추이
+new Chart(document.getElementById('chartPct'), {
+  type: 'line',
+  data: {
+    labels: shortLabels,
+    datasets: [
+      {
+        label:'EP 단독 비중', data: D.ep_pct,
+        borderColor: EP_COLOR, backgroundColor: EP_ALPHA,
+        tension:0.3, pointRadius:4, fill:true, borderWidth:2
+      },
+      {
+        label:'PB 단독 비중', data: D.pb_pct,
+        borderColor: PB_COLOR, backgroundColor: PB_ALPHA,
+        tension:0.3, pointRadius:4, fill:true, borderWidth:2
+      },
+      {
+        label:'EP+PB 합산', data: D.ep_pct.map((v,i)=>+(v+D.pb_pct[i]).toFixed(1)),
+        borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,0.08)',
+        tension:0.3, pointRadius:4, fill:false, borderWidth:2, borderDash:[4,3]
+      }
+    ]
+  },
+  options: { ...baseOpts(), scales: {
+    x: { ticks:{font:{size:11}, maxRotation:45}, grid:{display:false} },
+    y: { ticks:{font:{size:11}, callback: v=>v+'%'}, grid:{color:'#f1f5f9'}, min:0, max:60 }
+  }, plugins: {
+    legend: { position:'top', labels:{ font:{size:12}, boxWidth:12, padding:10 } },
+    datalabels: {
+      display: ctx => ctx.datasetIndex === 2,
+      anchor: 'top',
+      align: 'top',
+      offset: 4,
+      font: { size:10, weight:'700' },
+      color: '#d97706',
+      formatter: v => Math.round(v) + '%'
+    }
+  }}
+});
+
+// 1-B. EP+PB 합산 운영 상품수 (누적 막대)
+new Chart(document.getElementById('chartCombinedCnt'), {
+  type: 'bar',
+  data: {
+    labels: shortLabels,
+    datasets: [
+      { label:'EP 단독', data: D.ep_prod_cnt, backgroundColor:'rgba(59,130,246,0.8)', borderRadius:0, stack:'cnt' },
+      { label:'PB 단독', data: D.pb_prod_cnt, backgroundColor:'rgba(16,185,129,0.8)', borderRadius:4,  stack:'cnt' }
+    ]
+  },
+  options: { ...baseOpts(), scales: {
+    x: { ticks:{font:{size:11},maxRotation:45}, grid:{display:false}, stacked:true },
+    y: { ticks:{font:{size:11}}, grid:{color:'#f1f5f9'}, stacked:true, title:{display:true,text:'개',font:{size:11}}, suggestedMax:210 }
+  }, plugins:{
+    legend:{ position:'top', labels:{font:{size:12},boxWidth:12,padding:10} },
+    datalabels:{
+      display: (ctx) => ctx.datasetIndex === 1,
+      anchor:'end', align:'top', font:{size:10,weight:'600'}, color:'#1e293b',
+      formatter: (v, ctx) => {
+        const total = D.combined_prod_cnt[ctx.dataIndex];
+        return total + '개';
+      }
+    }
+  }}
+});
+
+// 1-B-2. EP+PB 합산 상품당 월매출
+new Chart(document.getElementById('chartCombinedPer'), {
+  type: 'bar',
+  data: {
+    labels: shortLabels,
+    datasets: [
+      {
+        label:'단독상품당 월매출(만원)',
+        data: D.combined_per_prod,
+        backgroundColor: D.combined_per_prod.map(v =>
+          v >= 380 ? 'rgba(139,92,246,0.85)' :
+          v >= 320 ? 'rgba(99,102,241,0.75)' :
+          'rgba(148,163,184,0.65)'
+        ),
+        borderRadius: 5,
+        type: 'bar'
+      },
+      {
+        label:'추세선',
+        data: D.combined_per_prod,
+        borderColor:'#f59e0b', backgroundColor:'transparent',
+        type:'line', tension:0.35, pointRadius:4, pointBackgroundColor:'#f59e0b',
+        borderWidth:2.5, fill:false
+      }
+    ]
+  },
+  options: { ...baseOpts(), scales: {
+    x: { ticks:{font:{size:11},maxRotation:45}, grid:{display:false} },
+    y: { ticks:{font:{size:11}, callback:v=>v.toLocaleString()+'만'}, grid:{color:'#f1f5f9'}, min:200, suggestedMax:460 }
+  }, plugins:{
+    legend:{ position:'top', labels:{font:{size:12},boxWidth:12,padding:10} },
+    datalabels:{
+      display: (ctx) => ctx.datasetIndex === 0,
+      anchor:'end', align:'top', font:{size:10,weight:'600'},
+      color: (ctx) => D.combined_per_prod[ctx.dataIndex] >= 380 ? '#6d28d9' : '#64748b',
+      formatter: v => v.toLocaleString()+'만'
+    }
+  }}
+});
+
+// 3. EP 상품수
+new Chart(document.getElementById('chartEpCnt'), {
+  type: 'bar',
+  data: {
+    labels: shortLabels,
+    datasets: [{ label:'EP 단독 상품수', data: D.ep_prod_cnt, backgroundColor:'rgba(59,130,246,0.7)', borderRadius:4 }]
+  },
+  options: { ...baseOpts(), scales: {
+    x: { ticks:{font:{size:11},maxRotation:45}, grid:{display:false} },
+    y: { ticks:{font:{size:11}}, grid:{color:'#f1f5f9'}, min:0, suggestedMax:55 }
+  }, plugins:{ legend:{display:false}, datalabels:{display:true, anchor:'end', align:'top', font:{size:10}, color:'#64748b', formatter:v=>v+'개'} } }
+});
+
+// 4. EP 상품당 매출
+new Chart(document.getElementById('chartEpPer'), {
+  type: 'line',
+  data: {
+    labels: shortLabels,
+    datasets: [{ label:'상품당 월매출(만원)', data: D.ep_per_prod, borderColor: EP_COLOR, backgroundColor: EP_ALPHA, tension:0.3, pointRadius:5, fill:true, borderWidth:2.5 }]
+  },
+  options: { ...baseOpts(), scales: {
+    x: { ticks:{font:{size:11},maxRotation:45}, grid:{display:false} },
+    y: { ticks:{font:{size:11}, callback:v=>v.toLocaleString()+'만'}, grid:{color:'#f1f5f9'}, min:300 }
+  }, plugins:{ legend:{display:false}, datalabels:{display:true, align:'top', anchor:'end', font:{size:10}, color:'#3b82f6', formatter:v=>v.toLocaleString()} } }
+});
+
+// 5. PB 상품수
+new Chart(document.getElementById('chartPbCnt'), {
+  type: 'bar',
+  data: {
+    labels: shortLabels,
+    datasets: [{ label:'PB 단독 상품수', data: D.pb_prod_cnt, backgroundColor:'rgba(16,185,129,0.7)', borderRadius:4 }]
+  },
+  options: { ...baseOpts(), scales: {
+    x: { ticks:{font:{size:11},maxRotation:45}, grid:{display:false} },
+    y: { ticks:{font:{size:11}}, grid:{color:'#f1f5f9'}, min:0, suggestedMax:160 }
+  }, plugins:{ legend:{display:false}, datalabels:{display:true, anchor:'end', align:'top', font:{size:10}, color:'#64748b', formatter:v=>v+'개'} } }
+});
+
+// 6. PB 상품당 매출
+new Chart(document.getElementById('chartPbPer'), {
+  type: 'line',
+  data: {
+    labels: shortLabels,
+    datasets: [{ label:'상품당 월매출(만원)', data: D.pb_per_prod, borderColor: PB_COLOR, backgroundColor: PB_ALPHA, tension:0.3, pointRadius:5, fill:true, borderWidth:2.5 }]
+  },
+  options: { ...baseOpts(), scales: {
+    x: { ticks:{font:{size:11},maxRotation:45}, grid:{display:false} },
+    y: { ticks:{font:{size:11}, callback:v=>v.toLocaleString()+'만'}, grid:{color:'#f1f5f9'}, min:100 }
+  }, plugins:{ legend:{display:false}, datalabels:{display:true, align:'top', anchor:'end', font:{size:10}, color:'#10b981', formatter:v=>v.toLocaleString()} } }
+});
+
+// 7. EP 카테고리 도넛
+const epCatColors = ['#3b82f6','#60a5fa','#93c5fd','#bfdbfe'];
+new Chart(document.getElementById('chartEpCat'), {
+  type: 'doughnut',
+  data: {
+    labels: D.ep_cat.labels,
+    datasets: [{ data: D.ep_cat.sales, backgroundColor: epCatColors, borderWidth:2, borderColor:'#fff', hoverOffset:6 }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display:false },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw}억 (${D.ep_cat.pct[ctx.dataIndex]}%)` } },
+      datalabels: { display:true, color:'#fff', font:{size:12,weight:'bold'}, formatter:(v,ctx)=>D.ep_cat.pct[ctx.dataIndex]+'%' }
+    },
+    cutout: '58%'
+  }
+});
+
+// EP 카테고리 테이블
+const epCatTbody = document.getElementById('epCatTable');
+D.ep_cat.labels.forEach((label, i) => {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${epCatColors[i]};margin-right:6px"></span>${label}</td><td style="text-align:right">${D.ep_cat.sales[i]}억</td><td style="text-align:right;font-weight:600">${D.ep_cat.pct[i]}%</td>`;
+  epCatTbody.appendChild(tr);
+});
+const epTotalTr = document.createElement('tr');
+epTotalTr.innerHTML = `<td>합계</td><td style="text-align:right">31.9억</td><td style="text-align:right">100%</td>`;
+epCatTbody.appendChild(epTotalTr);
+
+// 8. PB 카테고리 도넛
+const pbCatColors = ['#10b981','#3b82f6','#8b5cf6','#f59e0b','#94a3b8','#ec4899'];
+new Chart(document.getElementById('chartPbCat'), {
+  type: 'doughnut',
+  data: {
+    labels: D.pb_cat.labels,
+    datasets: [{ data: D.pb_cat.sales, backgroundColor: pbCatColors, borderWidth:2, borderColor:'#fff', hoverOffset:6 }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display:false },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw}억 (${D.pb_cat.pct[ctx.dataIndex]}%)` } },
+      datalabels: { display:true, color:'#fff', font:{size:11,weight:'bold'}, formatter:(v,ctx)=>D.pb_cat.pct[ctx.dataIndex]+'%' }
+    },
+    cutout: '58%'
+  }
+});
+
+// PB 카테고리 테이블
+const pbCatTbody = document.getElementById('pbCatTable');
+D.pb_cat.labels.forEach((label, i) => {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${pbCatColors[i]};margin-right:6px"></span>${label}</td><td style="text-align:right">${D.pb_cat.sales[i]}억</td><td style="text-align:right;font-weight:600">${D.pb_cat.pct[i]}%</td>`;
+  pbCatTbody.appendChild(tr);
+});
+const pbTotalTr = document.createElement('tr');
+pbTotalTr.innerHTML = `<td>합계</td><td style="text-align:right">43.5억</td><td style="text-align:right">100%</td>`;
+pbCatTbody.appendChild(pbTotalTr);
+
+// 9. PB 카테고리별 월별 매출 라인
+const catNames = ['수납','거실','침실','식탁','서재방','키즈'];
+const catColors = ['#10b981','#3b82f6','#8b5cf6','#f59e0b','#94a3b8','#ec4899'];
+new Chart(document.getElementById('chartPbCatLine'), {
+  type: 'line',
+  data: {
+    labels: shortLabels,
+    datasets: catNames.map((c,i) => ({
+      label: c, data: D.pb_cat_mon[c],
+      borderColor: catColors[i], backgroundColor: catColors[i]+'22',
+      tension:0.3, pointRadius:3, borderWidth:2, fill:false
+    }))
+  },
+  options: { ...baseOpts(), scales: {
+    x: { ticks:{font:{size:11},maxRotation:45}, grid:{display:false} },
+    y: { ticks:{font:{size:11}}, grid:{color:'#f1f5f9'}, title:{display:true,text:'억원',font:{size:11}} }
+  }, plugins:{ legend:{position:'top',labels:{font:{size:11},boxWidth:10,padding:8}}, datalabels:{display:false} } }
+});
+
+// ── 거실 비단독 상품군 데이터 ──
+const LIVING = {
+  ep: {
+    groups:  ['리클라이너 소파','스윙 소파','소파베드','기타 소파','패브릭 소파(일반)','가죽 소파','거실장/TV장','기타'],
+    sales:   [2.226, 1.895, 0.625, 0.528, 0.352, 0.349, 0.047, 0.043],
+    cnts:    [7, 13, 2, 13, 6, 16, 3, 9],
+    colors:  ['#3b82f6','#60a5fa','#818cf8','#93c5fd','#6366f1','#a5b4fc','#c7d2fe','#e0e7ff'],
+    top: [
+      { name:'보니애 보이저 슬라이딩 리클라이너 4인용', sales:0.677, per:846, type:'리클라이너' },
+      { name:'씨엘로 씨네드 슬라이드 리클라이너 4인용', sales:0.686, per:458, type:'리클라이너' },
+      { name:'눕 타이보텍스 스윙 패브릭소파 4인용',    sales:0.696, per:773, type:'스윙 소파' },
+      { name:'씨엘로 씨네드 슬라이드 리클라이너 3인용', sales:0.589, per:392, type:'리클라이너' },
+      { name:'눕 데이즈 아쿠아텍스 소파베드',          sales:0.401, per:268, type:'소파베드' },
+      { name:'폴로까사 듀레스트 스윙 가죽소파 4인용',  sales:0.386, per:258, type:'스윙 소파' },
+      { name:'보니애 이지 코모도 소파베드 1인용',      sales:0.224, per:373, type:'소파베드' },
+      { name:'폴로까사 듀레스트 스윙 가죽소파 3인용',  sales:0.287, per:205, type:'스윙 소파' },
+      { name:'폴로까사 생드니 아쿠아텍스 패브릭 4인용',sales:0.278, per:199, type:'패브릭 소파' },
+      { name:'눕 타이보텍스 스윙 패브릭소파 3인용',    sales:0.092, per:102, type:'스윙 소파' },
+    ]
+  },
+  pb: {
+    groups:  ['리클라이너 소파','가죽 소파','거실장/TV장','소파/거실 테이블','패브릭 소파(일반)','모듈 소파','기타거실가구','기타'],
+    sales:   [4.275, 2.797, 2.264, 1.594, 0.949, 0.413, 0.391, 0.357],
+    cnts:    [30, 18, 32, 19, 23, 11, 20, 16],
+    colors:  ['#10b981','#34d399','#6ee7b7','#3b82f6','#60a5fa','#8b5cf6','#f59e0b','#94a3b8'],
+    top: [
+      { name:'MVME 프라임 노블 홈바형 전동 리클라이너 4인(양쪽)', sales:0.848, per:565, type:'리클라이너' },
+      { name:'클린트2 거실장 180cm 북유럽형 3colors',            sales:0.756, per:473, type:'거실장/TV장' },
+      { name:'MVME 프라임 노블 전동 리클라이너 4인용',            sales:0.730, per:522, type:'리클라이너' },
+      { name:'엠마 컴포트 가죽소파 3인용',                       sales:0.580, per:363, type:'가죽 소파' },
+      { name:'클린트 어반 140cm 리프트업테이블',                  sales:0.566, per:353, type:'거실 테이블' },
+      { name:'MVME 프라임 노블 전동 리클라이너 3인용',            sales:0.530, per:353, type:'리클라이너' },
+      { name:'하이 아르떼 천연면피가죽 4인용 헤드틸딩 소파',       sales:0.506, per:362, type:'가죽 소파' },
+      { name:'MVME 트라움 라토 천연가죽 전동 리클라이너 1인',      sales:0.489, per:407, type:'리클라이너' },
+      { name:'엠마 컴포트 가죽소파 4인용',                       sales:0.401, per:287, type:'가죽 소파' },
+      { name:'밀로 패브릭소파 3인용 3colors',                    sales:0.387, per:242, type:'패브릭 소파' },
+    ]
+  }
+};
+
+// EP 비단독 거실 가로 막대
+new Chart(document.getElementById('chartEpNonLiving'), {
+  type: 'bar',
+  data: {
+    labels: LIVING.ep.groups,
+    datasets: [{
+      data: LIVING.ep.sales,
+      backgroundColor: LIVING.ep.colors,
+      borderRadius: 5,
+      borderSkipped: false
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.raw}억 (${LIVING.ep.cnts[ctx.dataIndex]}개 상품)` } },
+      datalabels: {
+        display: true, anchor:'end', align:'right',
+        font: { size:11, weight:'600' }, color:'#1e293b',
+        formatter: (v, ctx) => `${v}억 · ${LIVING.ep.cnts[ctx.dataIndex]}개`
+      }
+    },
+    scales: {
+      x: { ticks:{ font:{size:11}, callback: v=>v+'억' }, grid:{ color:'#f1f5f9' } },
+      y: { ticks:{ font:{size:12} }, grid:{ display:false } }
+    }
+  }
+});
+
+// PB 비단독 거실 가로 막대
+new Chart(document.getElementById('chartPbNonLiving'), {
+  type: 'bar',
+  data: {
+    labels: LIVING.pb.groups,
+    datasets: [{
+      data: LIVING.pb.sales,
+      backgroundColor: LIVING.pb.colors,
+      borderRadius: 5,
+      borderSkipped: false
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.raw}억 (${LIVING.pb.cnts[ctx.dataIndex]}개 상품)` } },
+      datalabels: {
+        display: true, anchor:'end', align:'right',
+        font: { size:11, weight:'600' }, color:'#1e293b',
+        formatter: (v, ctx) => `${v}억 · ${LIVING.pb.cnts[ctx.dataIndex]}개`
+      }
+    },
+    scales: {
+      x: { ticks:{ font:{size:11}, callback: v=>v+'억' }, grid:{ color:'#f1f5f9' } },
+      y: { ticks:{ font:{size:12} }, grid:{ display:false } }
+    }
+  }
+});
+
+// EP 비단독 거실 상위 상품 테이블
+const typeColorEp = { '리클라이너':'#3b82f6','스윙 소파':'#60a5fa','소파베드':'#818cf8','패브릭 소파':'#6366f1' };
+const epNonTbody = document.getElementById('epNonLivingTable');
+LIVING.ep.top.forEach(p => {
+  const c = typeColorEp[p.type] || '#94a3b8';
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${p.name}">${p.name}</td>
+    <td style="text-align:right;font-weight:600">${p.sales.toFixed(2)}억</td>
+    <td style="text-align:right">${p.per.toLocaleString()}만</td>
+    <td><span style="background:${c}22;color:${c};padding:2px 7px;border-radius:8px;font-size:11px;font-weight:600;white-space:nowrap">${p.type}</span></td>`;
+  epNonTbody.appendChild(tr);
+});
+
+// PB 비단독 거실 상위 상품 테이블
+const typeColorPb = { '리클라이너':'#10b981','거실장/TV장':'#3b82f6','거실 테이블':'#3b82f6','가죽 소파':'#34d399','패브릭 소파':'#60a5fa' };
+const pbNonTbody = document.getElementById('pbNonLivingTable');
+LIVING.pb.top.forEach(p => {
+  const c = typeColorPb[p.type] || '#94a3b8';
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${p.name}">${p.name}</td>
+    <td style="text-align:right;font-weight:600">${p.sales.toFixed(2)}억</td>
+    <td style="text-align:right">${p.per.toLocaleString()}만</td>
+    <td><span style="background:${c}22;color:${c};padding:2px 7px;border-radius:8px;font-size:11px;font-weight:600;white-space:nowrap">${p.type}</span></td>`;
+  pbNonTbody.appendChild(tr);
+});
+
+// ── 패브릭 소파 데이터 ──
+const F = {
+  ep_sales: [1.9671,2.2844,2.0133,1.5981,1.635,1.4257,1.1013,1.4633,1.9604,2.1593,1.6748,2.287,1.9322,1.6795,1.8868],
+  pb_sales: [0.1682,0.3869,0.3672,0.5217,0.4412,0.2864,0.2706,0.4233,0.1868,0.3596,0.5177,0.3996,0.4195,0.4324,0.3555],
+  ep_cnt:   [11,11,11,11,13,15,14,14,13,14,14,14,14,14,14],
+  pb_cnt:   [10,18,15,16,17,16,13,17,17,15,18,17,18,16,17],
+  ep_prods: [
+    { name:'눕 아쿠아텍스 4인용 (4colors)', sales:11.9948 },
+    { name:'눕 리세 아쿠아텍스 3인용 (3colors)', sales:6.6330 },
+    { name:'눕 아쿠아텍스 3인용 (4colors)', sales:2.2063 },
+    { name:'눕 시그니처 4인용 (3colors)', sales:2.1592 },
+    { name:'눕 아쿠아텍스 4인용 (4colors) v2', sales:1.0140 },
+    { name:'눕 아쿠아텍스 1인암리스 (4colors)', sales:0.8134 },
+    { name:'눕 아쿠아텍스 스툴 (4colors)', sales:0.7671 },
+    { name:'눕 아쿠아텍스 1인코너형 (4colors)', sales:0.3721 },
+    { name:'눕 시그니처 3인용 (3colors)', sales:0.3547 },
+    { name:'눕 시그니처 1인 암리스 (3colors)', sales:0.2059 },
+    { name:'눕 시그니처 1인 코너형 (3colors)', sales:0.1656 },
+    { name:'눕 시그니처 3인용 B (3colors)', sales:0.1525 },
+    { name:'눕 시그니처 스툴 (3colors)', sales:0.1022 },
+    { name:'리베 리클라이너 4인용', sales:0.0755 },
+    { name:'리베 리클라이너 3인용', sales:0.0519 }
+  ],
+  pb_prods: [
+    { name:'모아 모듈형 4인 라운지형', sales:0.9773 },
+    { name:'모아 모듈형 3인', sales:0.8778 },
+    { name:'모아 모듈형 와이드 4인', sales:0.7133 },
+    { name:'모아 모듈형 4인 오픈형', sales:0.5564 },
+    { name:'프리야 3인용 2colors', sales:0.4980 },
+    { name:'듀이 노르딕 3.5인용_코튼베이지', sales:0.4148 },
+    { name:'베이크 3인용(2종/택1)', sales:0.3432 },
+    { name:'베이크 3.5인용(2종/택1)', sales:0.3344 },
+    { name:'마요 3인용', sales:0.1559 },
+    { name:'모디프 스윙소파 4인', sales:0.1353 },
+    { name:'모아 와이드 4인 카우치형', sales:0.1182 },
+    { name:'모아 스툴 (2종/택1)', sales:0.1006 },
+    { name:'듀이 노르딕 3인용_코튼베이지', sales:0.1003 },
+    { name:'모아 암리스', sales:0.0945 },
+    { name:'모아 3인 카우치형', sales:0.0584 }
+  ]
+};
+
+// 11. 패브릭 소파 월별 상품수
+new Chart(document.getElementById('chartFabricCnt'), {
+  type: 'bar',
+  data: {
+    labels: shortLabels,
+    datasets: [
+      { label:'EP 단독', data: F.ep_cnt, backgroundColor:'rgba(59,130,246,0.8)', borderRadius:0, stack:'s' },
+      { label:'PB 단독', data: F.pb_cnt, backgroundColor:'rgba(16,185,129,0.8)', borderRadius:4, stack:'s' }
+    ]
+  },
+  options: { ...baseOpts(), scales: {
+    x: { ticks:{font:{size:11},maxRotation:45}, grid:{display:false}, stacked:true },
+    y: { ticks:{font:{size:11}}, grid:{color:'#f1f5f9'}, stacked:true, suggestedMax:38, title:{display:true,text:'개',font:{size:11}} }
+  }, plugins:{
+    legend:{ position:'top', labels:{font:{size:12},boxWidth:12,padding:10} },
+    datalabels:{
+      display: ctx => ctx.datasetIndex === 1,
+      anchor:'end', align:'top', font:{size:10,weight:'600'}, color:'#1e293b',
+      formatter:(v,ctx) => (F.ep_cnt[ctx.dataIndex]+v)+'개'
+    }
+  }}
+});
+
+// 12. 패브릭 소파 월별 매출
+new Chart(document.getElementById('chartFabricSales'), {
+  type: 'bar',
+  data: {
+    labels: shortLabels,
+    datasets: [
+      { label:'EP 단독', data: F.ep_sales, backgroundColor:'rgba(59,130,246,0.75)', borderRadius:0, stack:'s', yAxisID:'y' },
+      { label:'PB 단독', data: F.pb_sales, backgroundColor:'rgba(16,185,129,0.75)', borderRadius:4, stack:'s', yAxisID:'y' },
+      { label:'합산 추세', data: F.ep_sales.map((v,i)=>+(v+F.pb_sales[i]).toFixed(4)),
+        type:'line', borderColor:'#f59e0b', backgroundColor:'transparent',
+        tension:0.35, pointRadius:4, pointBackgroundColor:'#f59e0b',
+        borderWidth:2.5, fill:false, yAxisID:'y' }
+    ]
+  },
+  options: { ...baseOpts(), scales: {
+    x: { ticks:{font:{size:11},maxRotation:45}, grid:{display:false}, stacked:true },
+    y: { ticks:{font:{size:11}}, grid:{color:'#f1f5f9'}, stacked:true, title:{display:true,text:'억원',font:{size:11}} }
+  }, plugins:{
+    legend:{ position:'top', labels:{font:{size:12},boxWidth:12,padding:10} },
+    datalabels:{ display:false }
+  }}
+});
+
+// EP 패브릭 소파 테이블
+const epFabricTotal = F.ep_prods.reduce((s,p)=>s+p.sales,0);
+const epFabricTbody = document.getElementById('epFabricTable');
+F.ep_prods.forEach(p => {
+  const pct = (p.sales/epFabricTotal*100).toFixed(1);
+  const w = (p.sales/F.ep_prods[0].sales*100).toFixed(0);
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td>${p.name}</td><td style="text-align:right;font-weight:600">${p.sales.toFixed(2)}억</td><td><div class="bar-cell"><div class="bar-bg"><div class="bar-fill" style="width:${w}%;background:#3b82f6"></div></div><span>${pct}%</span></div></td>`;
+  epFabricTbody.appendChild(tr);
+});
+const epFabTr = document.createElement('tr');
+epFabTr.innerHTML = `<td>합계</td><td style="text-align:right">${epFabricTotal.toFixed(2)}억</td><td>100%</td>`;
+epFabricTbody.appendChild(epFabTr);
+
+// PB 패브릭 소파 테이블
+const pbFabricTotal = F.pb_prods.reduce((s,p)=>s+p.sales,0);
+const pbFabricTbody = document.getElementById('pbFabricTable');
+F.pb_prods.forEach(p => {
+  const pct = (p.sales/pbFabricTotal*100).toFixed(1);
+  const w = (p.sales/F.pb_prods[0].sales*100).toFixed(0);
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td>${p.name}</td><td style="text-align:right;font-weight:600">${p.sales.toFixed(2)}억</td><td><div class="bar-cell"><div class="bar-bg"><div class="bar-fill" style="width:${w}%;background:#10b981"></div></div><span>${pct}%</span></div></td>`;
+  pbFabricTbody.appendChild(tr);
+});
+const pbFabTr = document.createElement('tr');
+pbFabTr.innerHTML = `<td>합계</td><td style="text-align:right">${pbFabricTotal.toFixed(2)}억</td><td>100%</td>`;
+pbFabricTbody.appendChild(pbFabTr);
+
+// 10. PB 카테고리별 상품당 매출 라인
+new Chart(document.getElementById('chartPbCatPer'), {
+  type: 'line',
+  data: {
+    labels: shortLabels,
+    datasets: catNames.map((c,i) => ({
+      label: c, data: D.pb_cat_per[c],
+      borderColor: catColors[i], backgroundColor: catColors[i]+'22',
+      tension:0.3, pointRadius:3, borderWidth:2, fill:false
+    }))
+  },
+  options: { ...baseOpts(), scales: {
+    x: { ticks:{font:{size:11},maxRotation:45}, grid:{display:false} },
+    y: { ticks:{font:{size:11}, callback:v=>v.toLocaleString()+'만'}, grid:{color:'#f1f5f9'} }
+  }, plugins:{ legend:{position:'top',labels:{font:{size:11},boxWidth:10,padding:8}}, datalabels:{display:false} } }
+});
+
+</script>
+</body>
+</html>
